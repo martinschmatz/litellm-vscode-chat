@@ -119,6 +119,18 @@
 					"default": 30000,
 					"minimum": 1000,
 					"description": "Request timeout in milliseconds for model discovery requests. Default is 30000ms (30 seconds)."
+				},
+				"litellm-vscode-chat.retry.maxRetries": {
+					"type": "number",
+					"default": 1,
+					"minimum": 0,
+					"description": "Number of automatic retries for transient connection-level failures (e.g. 'fetch failed', ECONNRESET) when sending a chat request. Only the connection attempt is retried — HTTP error responses (4xx/5xx) and mid-stream failures are never retried. Set to 0 to disable auto-retry."
+				},
+				"litellm-vscode-chat.retry.initialDelayMs": {
+					"type": "number",
+					"default": 1000,
+					"minimum": 0,
+					"description": "Base backoff delay in milliseconds before retrying a transient chat-request failure. The delay grows exponentially per attempt and includes small random jitter. Default is 1000ms (1 second)."
 				}
 			}
 		}

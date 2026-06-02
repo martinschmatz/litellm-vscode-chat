@@ -11,6 +11,7 @@ import { estimateMessagesTokens, estimateToolTokens, getModelParameters, buildRe
 import type { ModelRoute } from "./request";
 import { StreamProcessor } from "./streaming";
 import { resolveServer } from "./config";
+import { fetchWithRetry } from "./retry";
 import type { ServerWithKey } from "../extension/serverRegistry";
 
 export interface ChatRequestContext {
@@ -69,6 +70,10 @@ export async function sendChatRequest(
 			clamped: requestTimeout,
 		});
 	}
+	const rawMaxRetries = settings.get<number>("retry.maxRetries", 1);
+	const maxRetries = Math.max(0, Number.isFinite(rawMaxRetries) ? Math.floor(rawMaxRetries) : 1);
+	const rawRetryDelay = settings.get<number>("retry.initialDelayMs", 1000);
+	const initialDelayMs = Math.max(0, Number.isFinite(rawRetryDelay) ? rawRetryDelay : 1000);
 	const supportsPromptCaching = promptCachingSupport.get(model.id) === true;
 	const openaiMessages = convertMessages(messages, {
 		cacheSystemPrompt: promptCachingEnabled && supportsPromptCaching,
@@ -123,12 +128,16 @@ export async function sendChatRequest(
 		messageCount: messages.length,
 	});
 
-	const response = await fetch(`${baseUrl}/v1/chat/completions`, {
-		method: "POST",
-		headers,
-		body: JSON.stringify(requestBody),
-		signal: AbortSignal.timeout(requestTimeout),
-	});
+	const response = await fetchWithRetry(
+		`${baseUrl}/v1/chat/completions`,
+		{
+			method: "POST",
+			headers,
+			body: JSON.stringify(requestBody),
+			signal: AbortSignal.timeout(requestTimeout),
+		},
+		{ maxRetries, initialDelayMs, token, log }
+	);
 
 	if (!response.ok) {
 		const errorText = await response.text();
